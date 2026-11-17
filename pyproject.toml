@@ -1,0 +1,56 @@
+[project]
+name = "domknow-causaldisc"
+version = "0.1.0"
+description = "Effects of domain knowledge on differentiable structure learning (ISWC 2026 Industry Track experiments)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bnlearn>=0.13.0",
+    "causal-learn>=0.1.4.8",
+    "dagrad",
+    "ipykernel>=7.4.0",
+    "matplotlib>=3.10",
+    "networkx>=3.6",
+    "numpy>=2.4.3",
+    "pandas>=3.0.1",
+    "pooch>=1.9.0",
+    "pyvis>=0.3.2",
+    "scipy>=1.17",
+    "seaborn>=0.13.2",
+    "torch>=2.10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# src/ is installed (editable under uv) so its modules import from anywhere:
+# notebooks, tests, any working directory.
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+only-include = ["src"]
+
+[project.optional-dependencies]
+# AGPL-3.0; only the causalAssembly benchmark loader (src/benchmarks/causalassembly.py) uses it.
+causalassembly = ["causalassembly>=1.2.1"]
+
+[tool.uv]
+# The lock must have CUDA torch wheels for both the Linux cluster and Windows.
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+# Install dagrad as a plain path entry rather than an import hook, so the
+# repo-root dagrad/ folder can't shadow it when Python runs from the repo root.
+config-settings-package = { dagrad = { editable_mode = "compat" } }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+dagrad = { path = "./dagrad", editable = true }

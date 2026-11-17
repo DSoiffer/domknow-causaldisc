@@ -1,0 +1,136 @@
+# The experiment protocol: learners, benchmarks and experiment grids.
+# Read by train/config.py, which rejects unknown keys. TOML has no null, so the
+# string "none" stands for "not set" wherever a value can be absent.
+
+# Each run trains once without thresholding and is scored at every one of these
+# cutoffs on |W| (NOTEARS/DAGMA apply the threshold purely post-training).
+w_thresholds = [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+
+# Training seeds (also the domain-knowledge seeds unless crossed separately).
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Seed for resampling noisy datasets, and whether injected noise propagates to
+# descendants (false = measurement noise).
+noise_seed = 0
+propagate_noise = true
+
+# Rows subsampled from each run's dataset before training, drawn with the run's
+# dk_seed; "none" uses the whole dataset.
+n_samples = "none"
+
+
+# ---- Learners ------------------------------------------------------------------
+
+# Shared by every learner unless it overrides them. gamma only affects the MCP
+# penalty (1.0 is a placeholder for L1).
+[learner_defaults]
+reg = "l1"
+gamma = 1.0
+lambda1 = 0.01
+normalization = "zscore"
+var_floor = 0
+
+# name = dagrad arguments. ``base`` (default: the name) labels the learner in
+# results; two learners may share a base when they differ in loss_fn.
+# dagma + lbfgs is auto-switched to adam by dagrad, so DAGMA is only listed with
+# adam; logdetll_nv has no nonlinear implementation.
+[learners]
+dagma_adam = { method = "dagma", model = "linear", loss_fn = "l2", optimizer = "adam" }
+dagma_adam_logdet = { base = "dagma_adam", method = "dagma", model = "linear", loss_fn = "logdetll_nv", optimizer = "adam", reg = "mcp", gamma = 0.3 }
+dagma_adam_logll = { method = "dagma", model = "linear", loss_fn = "logll", optimizer = "adam" }
+notears_lbfgs = { method = "notears", model = "linear", loss_fn = "l2", optimizer = "lbfgs" }
+notears_adam = { method = "notears", model = "linear", loss_fn = "l2", optimizer = "adam" }
+notears_adam_logdet = { base = "notears_adam", method = "notears", model = "linear", loss_fn = "logdetll_nv", optimizer = "adam", reg = "mcp", gamma = 0.3 }
+dagma_adam_nl = { method = "dagma", model = "nonlinear", loss_fn = "l2", optimizer = "adam" }
+dagma_adam_logll_nl = { method = "dagma", model = "nonlinear", loss_fn = "logll", optimizer = "adam" }
+notears_lbfgs_nl = { method = "notears", model = "nonlinear", loss_fn = "l2", optimizer = "lbfgs" }
+notears_adam_nl = { method = "notears", model = "nonlinear", loss_fn = "l2", optimizer = "adam" }
+notears_adam_logll_nl = { method = "notears", model = "nonlinear", loss_fn = "logll", optimizer = "adam" }
+
+[config_sets]
+linear = ["dagma_adam", "dagma_adam_logdet", "dagma_adam_logll", "notears_lbfgs", "notears_adam", "notears_adam_logdet"]
+nonlinear = ["dagma_adam_nl", "dagma_adam_logll_nl", "notears_lbfgs_nl", "notears_adam_nl", "notears_adam_logll_nl"]
+
+# Per-method option overrides passed to dagrad (empty = library defaults).
+[method_options]
+[optimizer_options]
+
+
+# ---- Benchmarks ----------------------------------------------------------------
+# noise: default noise levels, crossed into every run like an axis. "none" trains
+#   on the data as built; a fraction F resamples the dataset's fitted SCM with
+#   N(0, F * std(node)) added to every non-root node.
+# cpdag_metrics: also score Markov-equivalence (cpdag_*) metrics.
+# layout_dataset: data/<dir> holding the reference layout (the "reference" tiers).
+# A [benchmarks.<name>.<experiment>] table adds axes to that experiment's grid on
+# this benchmark. tier_source picks the tiers for tier_mask: "reference"
+# (vertical layers of the reference layout), "station" (causalAssembly station
+# numbers), "dag" (topological generations of the true DAG, i.e. TierSort),
+# "station_dag" (forbid if either of the last two does).
+
+# Near-deterministic: methods only learn with injected noise.
+[benchmarks.causalman]
+noise = [0.1]
+layout_dataset = "dataset0"
+tier_mask = { tier_source = ["reference"] }
+
+# Nonparametric mechanisms (DataGenerator cannot refit them): no noise axis.
+[benchmarks.causalassembly]
+noise = ["none"]
+tier_mask = { tier_source = ["station", "dag"] }
+
+# Built from the CausalMan simulator with process noise already in the SCM
+# (python -m benchmarks causalman_sim), so no noise axis; tiers from the true DAG.
+[benchmarks.causalman_sim]
+noise = ["none"]
+tier_mask = { tier_source = ["dag"] }
+
+# The same, pooled over all sub-batches (12 environments); level-2 ground truth.
+[benchmarks.causalman_sim_pooled]
+noise = ["none"]
+tier_mask = { tier_source = ["dag"] }
+
+# Real data with no layout or stations: tiers come from the true DAG.
+[benchmarks.sachs]
+noise = ["none"]
+cpdag_metrics = true
+tier_mask = { tier_source = ["dag"] }
+
+
+# ---- Experiments: the axes crossed into each grid --------------------------------
+# given_mode: how given edges are encouraged to exist.
+#   "hinge": exempt from sparsity and pushed up to magnitude given_hinge_margin (m)
+#     with strength given_hinge_weight (rho), via rho * sum max(0, m - |W|)^2;
+#   "neg_l1": L1 weight -lambda1_given on them ("none" = the learner's lambda1).
+# mask_reverse: also forbid the reverse of each given edge.
+
+# Forbid edges from later to earlier tiers, keeping this fraction of the forbidden set.
+[experiments.tier_mask]
+mask_fraction = [0.0, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
+
+# Give this fraction of the true edges. No 0 point: that is tier_mask at 0.
+[experiments.given_edges]
+frac_given = [0.1, 0.25, 0.5, 0.75]
+given_mode = ["hinge"]
+given_hinge_margin = [0.03, 0.1, 0.5]
+given_hinge_weight = [0.01, 0.1, 1.0]
+lambda1_given = ["none"]  # unused by the hinge; keeps the column shared with neg_l1
+mask_reverse = [true]
+
+[experiments.given_edges_neg_l1]
+frac_given = [0.1, 0.25, 0.5, 0.75]
+given_mode = ["neg_l1"]
+lambda1_given = ["none", 0.02, 0.05, 0.1, 0.5]
+mask_reverse = [true]
+
+# Give both incoming edges of this fraction of the (unshielded) colliders.
+[experiments.given_colliders]
+frac_colliders = [0.0, 0.25, 0.5, 0.75, 1.0]
+given_mode = ["neg_l1"]
+lambda1_given = ["none"]
+mask_reverse = [true]
+
+# Keep the variables of n randomly ordered colliders and marginalize the rest;
+# "all" = 1, 2, ..., every collider of the dataset.
+[experiments.graph_growth]
+n_colliders = "all"

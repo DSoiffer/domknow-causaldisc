@@ -1,0 +1,30 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.vscode
+
+# Raw downloads, built datasets, and experiment results (see README)
+/data/
+
+# pyvis assets written next to generated graph HTML
+lib/
+
+# paper source (kept alongside, not versioned here)
+/ISWC_2026_Industy_Track/
+
+# Developer tests (not part of the published code)
+/tests/
+
+# CausalMan simulator: a sparse clone with its own .git (see README)
+/CausalMan/
+
+# Notes for Claude Code (local only)
+/CLAUDE.md
