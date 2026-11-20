@@ -91,6 +91,10 @@ CausalMan (given colliders), plots each result, and draws a benchmark's true
 graph and one run's estimate against it: a short tour of `train.run`,
 `analysis.lines` and `visualize.graph`.
 
+[notebooks/paper_experiments.ipynb](notebooks/paper_experiments.ipynb) reruns the
+paper's experiments: it trains Figures 1 and 2 (and the extra runs behind the
+claims in the text) for the seeds you choose, then draws every panel.
+
 ## Training causal discovery
 
 Training code is in [src/train/](src/train/README.md).
@@ -126,10 +130,10 @@ lines.draw(ge, reference=17)
 ```
 
 (CausalMan: `"noise": 0.1`; causalAssembly's tier_mask: add `"tier_source":
-"station"` or `"dag"` for TierSort.) Figure 1 scores a seed whose estimate is
-cyclic at the chosen threshold at its own smallest acyclic threshold: pass
-`cyclic="fill"` to `lines.table` for its panels. By default (`"drop"`) such
-seeds are left out, as in Figure 2.
+"station"` or `"dag"` for TierSort.) To score a seed whose estimate is cyclic at
+the chosen threshold at its own smallest acyclic threshold, as Figure 1 does,
+pass `cyclic="fill"` to `lines.table`. By default (`"drop"`), such seeds are left
+out.
 
 Each run is stored under an ID hashed from all of its inputs, so re-running a
 command picks up where it stopped, and changing any setting produces new runs
@@ -151,7 +155,8 @@ tables and plots.
 ## Layout
 
 ```
-notebooks/              usage examples (examples.ipynb)
+notebooks/              usage examples (examples.ipynb), the paper's
+                        experiments (paper_experiments.ipynb)
 dagrad/                 modified fork of github.com/Duntrain/dagrad
                         (adds per-edge L1 weights and the given-edge hinge; see
                         "Changes in this fork" in dagrad/README.md)

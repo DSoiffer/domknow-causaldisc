@@ -88,7 +88,7 @@ of them and `none` unset) and write to `<dir>/plots/` unless `--out` is given:
 | command | what |
 |---|---|
 | `analysis.consistency_plots <dir> --x X ...` | across-seed and between-config agreement of the predicted edge sets, per-edge recovery, top false positives |
-| `analysis.diagnostics.given_edge_recovery <dir> ...` | how many given edges are recovered, or learned reversed. Works on `given_edges` and `given_edges_neg_l1`; for the latter, fix one reward per call (`--where lambda1_given=0.1 ...`) |
+| `analysis.diagnostics.given_edge_recovery <dir> ...` | how many of the given edges are recovered (`--reverse`: also how many are learned reversed, for runs without `mask_reverse`). Works on `given_edges` and `given_edges_neg_l1`; for the latter, fix one reward per call (`--where lambda1_given=0.1 ...`) |
 
 ## Visualizing a run's learned graph
 

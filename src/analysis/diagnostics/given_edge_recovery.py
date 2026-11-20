@@ -7,8 +7,10 @@ predicted (``|W[u, v]|`` at or above the threshold) and how many are learned
 reversed (``v -> u`` predicted), then averages over seeds. Only points with
 edges given (x > 0) are used.
 
-Whether a reverse can be learned at all depends on ``mask_reverse``: with it,
-the reverse of each given edge is forbidden.
+A reverse can only be learned in runs without ``mask_reverse``; with it (the
+shipped protocol), the reverse of each given edge is forbidden and the count is
+always 0, so the plot shows it only on request (``reverse=True`` /
+``--reverse``).
 
 Usage (one plot per call; e.g. one negative-L1 reward at a time):
     python -m analysis.diagnostics.given_edge_recovery data/results/sachs/given_edges
@@ -64,21 +66,25 @@ def table(exp_dir: Path, x: str = "frac_given", where: dict | None = None,
     return out
 
 
-def draw(tbl: pd.DataFrame, ax: plt.Axes | None = None, title: str | None = None) -> plt.Axes:
-    """Given edges recovered (solid) and learned reversed (dotted) per line,
-    against the number given (dashed black: the ceiling)."""
+def draw(tbl: pd.DataFrame, ax: plt.Axes | None = None, title: str | None = None,
+         reverse: bool = False) -> plt.Axes:
+    """Given edges recovered (solid) per line, against the number given (dashed
+    black: the ceiling); with ``reverse``, also those learned reversed (dotted)."""
     if ax is None:
         _, ax = plt.subplots(figsize=(6.4, 4.8))
     for label, look in style.line_style(sorted(tbl["label"].unique())).items():
         line = tbl[tbl["label"] == label].sort_values("x")
         ax.plot(line["x"], line["n_recovered"], marker=look["marker"], color=look["color"],
                 label=look["name"])
-        ax.plot(line["x"], line["n_reverse"], marker="x", ls=":", color=look["color"], alpha=0.7)
+        if reverse:
+            ax.plot(line["x"], line["n_reverse"], marker="x", ls=":", color=look["color"],
+                    alpha=0.7)
     ceiling = tbl.groupby("x")["n_given"].mean()
     ax.plot(ceiling.index, ceiling.to_numpy(), "k--", marker="s", ms=4, label="given (ceiling)")
     x = tbl.attrs.get("x", "x")
     ax.set_xlabel(style.AXIS_NAMES.get(x, x))
-    ax.set_ylabel("given edges (solid: recovered, dotted: reversed)")
+    ax.set_ylabel("given edges (solid: recovered, dotted: reversed)" if reverse
+                  else "given edges recovered")
     ax.set_ylim(bottom=0)
     if title:
         ax.set_title(title)
@@ -98,11 +104,15 @@ def main() -> None:
     parser.add_argument("--best-over", nargs="+", default=["w_threshold"])
     parser.add_argument("--out", type=Path, default=None,
                         help="default: <exp_dir>/plots/given_edge_recovery.png")
+    parser.add_argument("--reverse", action="store_true",
+                        help="also plot the given edges learned reversed (only possible "
+                             "in runs without mask_reverse)")
     args = parser.parse_args()
     tbl = table(args.exp_dir, args.x, lines.parse_where(args.where), args.labels, args.best_over)
     out = args.out or args.exp_dir / "plots" / "given_edge_recovery.png"
     out.parent.mkdir(parents=True, exist_ok=True)
-    ax = draw(tbl, title=f"{args.exp_dir.parent.name}/{args.exp_dir.name}: given-edge recovery")
+    ax = draw(tbl, title=f"{args.exp_dir.parent.name}/{args.exp_dir.name}: given-edge recovery",
+              reverse=args.reverse)
     ax.figure.tight_layout()
     ax.figure.savefig(out, dpi=150)
     print(tbl.round(2).to_string(index=False))
